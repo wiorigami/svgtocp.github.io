@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG to CP Converter</title>
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        
+        .app {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        button {
+            padding: 10px 20px;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <h1>SVG to CP Converter</h1>
+        <input type="file" id="svgFileInput" accept=".svg" style="display: none;" onchange="handleSvgFileChange()">
+        <button id="uploadButton" onclick="selectSvgFile()">Upload SVG File</button>
+        <p id="progressLabel">Progress: 0%</p>
+        <button id="downloadButton" onclick="downloadCpFile()" style="display: none;">Download CP File</button>
+    </div>
+    <script src="script.js"></script>
+
+    <script>
+        let selectedFile = null;
+        let cpContent = '';
+        let reader = null;
+        let progress = 0;
+        
+        function selectSvgFile() {
+            document.getElementById('svgFileInput').click();
+        }
+        
+        function handleSvgFileChange() {
+            selectedFile = document.getElementById('svgFileInput').files[0];
+            if (selectedFile) {
+                document.getElementById('progressLabel').textContent = 'Progress: 0%';
+                startConversion();
+            }
+        }
+        
+        function startConversion() {
+            if (!selectedFile) {
+                alert('Please select an SVG file to convert.');
+                return;
+            }
+        
+            reader = new FileReader();
+            reader.onload = function(e) {
+                const parser = new DOMParser();
+                const svg = parser.parseFromString(e.target.result, "image/svg+xml").documentElement;
+                const lines = svg.querySelectorAll('line');
+                const totalLines = lines.length;
+                let convertedLines = 0;
+        
+                cpContent = ''; // Reset cpContent for new conversion
+        
+                lines.forEach(line => {
+                    const x1 = line.getAttribute('x1');
+                    const y1 = line.getAttribute('y1');
+                    const x2 = line.getAttribute('x2');
+                    const y2 = line.getAttribute('y2');
+                    const stroke = line.getAttribute('stroke') || 'black'; // Default color if not specified
+                    let lineType = getLineType(stroke);
+                    cpContent += `${lineType} ${x1} ${y1} ${x2} ${y2}\n`;
+                    convertedLines++;
+                    updateProgress(convertedLines, totalLines);
+                });
+        
+                document.getElementById('downloadButton').style.display = 'inline-block'; // Make sure the download button is visible
+            };
+            reader.readAsText(selectedFile);
+        }
+        
+        function getLineType(strokeColor) {
+            const colorToTypeMapping = {
+                'black': 1,
+                'red': 2,
+                'blue': 3
+            };
+            return colorToTypeMapping[strokeColor] || 1; // Default to type 1 if color is not mapped
+        }
+        
+        function updateProgress(convertedLines, totalLines) {
+            progress = (convertedLines / totalLines) * 100;
+            document.getElementById('progressLabel').textContent = `Progress: ${Math.round(progress)}%`;
+            if (progress === 100) {
+                reader.onload = null; // Prevent multiple calls to onload
+            }
+        }
+        
+        function downloadCpFile() {
+            if (!cpContent) {
+                alert('Please convert the SVG file first.');
+                return;
+            }
+        
+            const blob = new Blob([cpContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${selectedFile.name.replace('.svg', '')}.cp`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        document.getElementById('svgFileInput').addEventListener('change', handleSvgFileChange);
+    </script>
+</body>
+
+</html>
